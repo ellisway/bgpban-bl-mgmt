@@ -4,6 +4,13 @@
 #
 #------------------------------------------------------------------------------
 #
+# Copyright (c) 2022 good1.com .
+#
+#------------------------------------------------------------------------------
+#
+#
+#------------------------------------------------------------------------------
+#
 # Copyright (c) 2015 - 2019 Waterside Consulting, inc.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -27,7 +34,7 @@
 #------------------------------------------------------------------------------
 #
 #------------------------------------------------------------------------------
-# Automated Blacklist management for Ubiquiti EdgeRouters
+# Automated Blacklist management for bgp Routers
 # For use in lieu or supplement of blackhole-routing and BGP route filtering
 #
 # 24 August 2019: v1.6
@@ -70,6 +77,18 @@
 #
 #------------------------------------------------------------------------------
 #
+#
+#
+##
+## Pre-Configuration as were not running on a edgerouter
+##
+#
+#
+# add our ipsets
+ipset create Nets4-BlackList hash:net
+ipset create Nets6-BlackList hash:net family inet6
+
+#
 ##
 ## Configuration
 ##
@@ -78,14 +97,15 @@
 #
 # Firewall blacklist groups
 #   These network-groups must already exist.
-#   These shoudld be created via EdgeOS BUI or CLI, and to have any
-#     effect must be assigned to one or more firewall rules
+#   These shoudld be created by the ipset commands above. 
 #   Leave empty to not populate IPset netgroup
 fwGroupNets4="Nets4-BlackList"
 fwGroupNets6="Nets6-BlackList"
+#fwGroupNets4=""
+#fwGroupNets6=""
 #
-# Persistent data location (directory)
-dirUserData="/config/user-data"
+# Persistent data location (normally the bgpban data directory)
+dirUserData="/path/to/bgpban/scripts"
 #
 # Locally-defined blacklist, in above persistent location (file, optional)
 fnLocalBlackList="LocalBlackList.txt"
@@ -133,7 +153,7 @@ useLogger=2
 #     largest that will be dynamically allowed, and if the total count of
 #     blocked networks + hosts is greater than this value then no
 #     update will be made to the firewall group.
-fwSetMaxElem=131071
+fwSetMaxElem=262544
 #
 # Location for 'iprange' exectuable, optional.
 #   See https://github.com/firehol/iprange/wiki
@@ -519,8 +539,8 @@ doProcess4()
         debugMsg "Using '${cmdBaseIPRange}' for optimizing"
         cmdFlg=""
         cmdFlg2=""
-        [[ -n "${ipRangeRedFactor}" ]] && cmdFlg="--reduce-factor ${ipRangeRedFactor}"
-        [[ -n "${ipRangeRedEntries}" ]] && cmdFlg="${cmdFlg} --reduce-entries ${ipRangeRedEntries}"
+#        [[ -n "${ipRangeRedFactor}" ]] && cmdFlg="--reduce-factor ${ipRangeRedFactor}"
+#        [[ -n "${ipRangeRedEntries}" ]] && cmdFlg="${cmdFlg} --reduce-entries ${ipRangeRedEntries}"
         # If local whitelist exists, exclude those IPs from blacklist
         [[ -s "${fpLocWhiteList}" ]] && cmdFlg2="--exclude-next ${fpLocWhiteList}"
         ${cmdBaseIPRange} ${fnTemp2} ${cmdFlg} ${cmdFlg2} > ${fnTemp3}
@@ -758,5 +778,77 @@ if [[ -n "${fwGroupNets6}" ]]; then
     doUpdate6
 fi
 finishup
+
+#
+##
+## cleanup the ipsets
+##
+#
+ipset destroy Nets4-BlackList
+ipset destroy Nets6-BlackList
+
+
+
+#
+##
+## reformat the output
+##
+#
+
+cd ${dirUserData}
+
+##
+## move previous list
+##
+
+if [[ -f "v4-bhr-import.list" ]]
+then
+    echo "A blacklist file exists...."
+    echo "moving the old file...."
+    mv v4-bhr-import.list v4-bhr-import.list.old
+else
+    echo "No old file exists...."
+    echo "A new file will be generated...."
+    echo ""
+fi
+
+if [[ -f "v4-bhr-import.list" ]]
+then
+    echo "The old blacklist file still exists on your filesystem."
+    echo "Removing the old file...."
+    rm v4-bhr-import.list
+else
+    echo "No old file exists...."
+    echo "A new file will be generated...."
+    echo ""
+fi
+
+
+
+#
+##
+## seperate hosts and networks and add /32 mask to hosts
+##
+#
+
+for i in `cat fw-IPSET-4.txt | grep -v create | awk '{print $3 }' | sort -t . -k 1,1n -k 2,2n -k 3,3n -k 4,4n | grep -v / ` ; do echo $i/32 >>v4hosts; done
+for i in `cat fw-IPSET-4.txt | grep -v create | awk '{print $3 }' | sort -t . -k 1,1n -k 2,2n -k 3,3n -k 4,4n | grep / ` ; do echo $i >>v4ranges; done
+
+cat v4hosts v4ranges | sort -t . -k 1,1n -k 2,2n -k 3,3n -k 4,4n >>v4-bhr-import.list
+
+#
+##
+## cleanup old files
+##
+#
+rm v4hosts
+rm v4ranges
+rm fw-IPSET-4.txt
+
+#
+##
+## finally exit
+##
+#
 
 exit 0
