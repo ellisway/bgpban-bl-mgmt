@@ -1,7 +1,7 @@
 ## BlackList Management
 -------------------------------------------------------------
 Automated management of network and host address blacklists, for use
-in bgp .
+in bgpban .
 
 To use the optional `iprange` for optimization and reduction you will need to install the
 binary.  There is an existing iprange .deb package for both mips and mipsel that
