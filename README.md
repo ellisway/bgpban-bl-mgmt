@@ -3,6 +3,13 @@
 Automated management of network and host address blacklists, for use
 in bgpban .
 
+#
+##
+##     BEFORE YOU CAN USE THE SCRIPT YOU MUST CONFIGURE THE PATH FOR THE PERSISTENT STORAGE 
+##
+#
+
+
 To use the optional `iprange` for optimization and reduction you will need to install the
 binary.  There is an existing iprange .deb package for both mips and mipsel that
 may be used.
